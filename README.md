@@ -19,10 +19,10 @@ The app and transcription models stay local. Sparkle checks the public `appcast.
 ## Install with Homebrew
 
 ```sh
-brew install --cask --no-quarantine italian-seasoning/tap/parakeet-transcriber
+brew install --cask italian-seasoning/tap/parakeet-transcriber
 ```
 
-The current public build is ad-hoc signed and not Apple-notarized, so Homebrew must install it without quarantine. Release archives remain protected by Homebrew SHA-256 verification and Sparkle's update signature.
+The current public build is ad-hoc signed and not Apple-notarized. The cask verifies the pinned SHA-256, installs the app, then removes macOS quarantine. Sparkle verifies future updates with its EdDSA signature.
 
 ## Release status
 
