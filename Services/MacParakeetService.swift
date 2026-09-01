@@ -15,7 +15,7 @@ struct MacParakeetCommand: Equatable {
             "transcribe"
         ] + files.map(\.path) + [
             "--output-dir", outputDirectory.path,
-            "--format", "transcript",
+            "--format", "srt",
             "--no-history",
             "--speaker-detection", "off"
         ] + modelArguments(for: model)
@@ -145,7 +145,7 @@ final class MacParakeetService: @unchecked Sendable {
         let transcriptURLs = files.map {
             outputDirectory
                 .appendingPathComponent($0.deletingPathExtension().lastPathComponent)
-                .appendingPathExtension("txt")
+                .appendingPathExtension("srt")
         }
 
         let command = MacParakeetCommand.make(

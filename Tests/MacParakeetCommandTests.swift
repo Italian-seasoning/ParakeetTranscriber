@@ -18,6 +18,10 @@ final class MacParakeetCommandTests: XCTestCase {
         XCTAssertEqual(command.executableURL, cli)
         XCTAssertEqual(command.arguments.first, "transcribe")
         XCTAssertTrue(command.arguments.contains("/tmp/a file.mp3"))
+        XCTAssertEqual(
+            Array(command.arguments.drop(while: { $0 != "--format" }).prefix(2)),
+            ["--format", "srt"]
+        )
         XCTAssertEqual(Array(command.arguments.suffix(2)), ["--parakeet-model", "unified"])
     }
 
