@@ -45,26 +45,46 @@ struct MacParakeetCommand: Equatable {
 }
 
 struct MacParakeetProgressParser {
-    static func progress(in output: String) -> Double? {
-        var currentFile = 1
-        var totalFiles = 1
-        var localPercent: Double?
+    private var pending = Data()
+    private var currentFile = 1
+    private var totalFiles = 1
+    private var localPercent: Double?
+    private var lastReported: Double?
 
-        for line in output.split(whereSeparator: \.isNewline) {
-            if let batch = batchPosition(in: line) {
-                currentFile = batch.current
-                totalFiles = batch.total
-                localPercent = 0
-            }
-            if let percent = transcriptionPercent(in: line) {
-                localPercent = percent
-            }
+    static func progress(in output: String) -> Double? {
+        var parser = Self()
+        return parser.consume(Data(output.utf8))
+    }
+
+    mutating func consume(_ data: Data) -> Double? {
+        pending.append(data)
+        var start = pending.startIndex
+        for index in pending.indices where pending[index] == 10 || pending[index] == 13 {
+            readLine(String(decoding: pending[start..<index], as: UTF8.self)[...])
+            start = pending.index(after: index)
         }
+        pending.removeSubrange(pending.startIndex..<start)
+        // CLI progress can end at a percent sign without a newline.
+        readLine(String(decoding: pending, as: UTF8.self)[...])
 
         guard let localPercent else { return nil }
-        let completedFiles = Double(max(currentFile - 1, 0))
-        let progress = (completedFiles + localPercent / 100) / Double(max(totalFiles, 1))
-        return min(max(progress, 0), 1)
+        let progress = min(max((Double(currentFile - 1) + localPercent / 100) / Double(totalFiles), 0), 1)
+        guard progress != lastReported else { return nil }
+        lastReported = progress
+        return progress
+    }
+
+    private mutating func readLine(_ line: Substring) {
+        if let batch = Self.batchPosition(in: line) {
+            if batch.current != currentFile || batch.total != totalFiles {
+                localPercent = 0
+            }
+            currentFile = batch.current
+            totalFiles = batch.total
+        }
+        if let percent = Self.transcriptionPercent(in: line) {
+            localPercent = percent
+        }
     }
 
     private static func batchPosition(in line: Substring) -> (current: Int, total: Int)? {
@@ -78,7 +98,8 @@ struct MacParakeetProgressParser {
               let current = Int(values[0]),
               let total = Int(values[1]),
               current > 0,
-              total > 0
+              total > 0,
+              current <= total
         else { return nil }
         return (current, total)
     }
@@ -87,6 +108,7 @@ struct MacParakeetProgressParser {
         let marker = "Transcribing... "
         guard let markerRange = line.range(of: marker, options: .backwards) else { return nil }
         let digits = line[markerRange.upperBound...].prefix(while: \.isNumber)
+        guard line[markerRange.upperBound...].dropFirst(digits.count).first == "%" else { return nil }
         return Double(digits)
     }
 }
@@ -108,13 +130,13 @@ enum MacParakeetError: LocalizedError {
 private final class OutputBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private var data = Data()
+    private var parser = MacParakeetProgressParser()
 
-    func appendAndRead(_ newData: Data) -> String {
+    func append(_ newData: Data) -> Double? {
         lock.lock()
+        defer { lock.unlock() }
         data.append(newData)
-        let text = String(decoding: data, as: UTF8.self)
-        lock.unlock()
-        return text
+        return parser.consume(newData)
     }
 
     func text(appending finalData: Data) -> String {
@@ -142,12 +164,6 @@ final class MacParakeetService: @unchecked Sendable {
             at: outputDirectory,
             withIntermediateDirectories: true
         )
-        let transcriptURLs = files.map {
-            outputDirectory
-                .appendingPathComponent($0.deletingPathExtension().lastPathComponent)
-                .appendingPathExtension("srt")
-        }
-
         let command = MacParakeetCommand.make(
             cliURL: cliURL,
             files: files,
@@ -172,8 +188,7 @@ final class MacParakeetService: @unchecked Sendable {
                 handle.readabilityHandler = nil
                 return
             }
-            let output = outputBuffer.appendAndRead(data)
-            if let progress = MacParakeetProgressParser.progress(in: output) {
+            if let progress = outputBuffer.append(data) {
                 onProgress(progress)
             }
         }
@@ -188,10 +203,14 @@ final class MacParakeetService: @unchecked Sendable {
                     self?.setProcess(nil)
 
                     if process.terminationStatus == 0 {
+                        let urls = Self.transcriptURLs(in: output, outputDirectory: outputDirectory)
+                        guard urls.count == files.count,
+                              urls.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else {
+                            continuation.resume(throwing: MacParakeetError.failed("The transcription finished, but its subtitle files could not be located. Check the output folder."))
+                            return
+                        }
                         onProgress(1)
-                        continuation.resume(returning: transcriptURLs.filter {
-                            FileManager.default.fileExists(atPath: $0.path)
-                        })
+                        continuation.resume(returning: urls)
                     } else {
                         continuation.resume(throwing: MacParakeetError.failed(output))
                     }
@@ -216,6 +235,18 @@ final class MacParakeetService: @unchecked Sendable {
         lock.unlock()
         if runningProcess?.isRunning == true {
             runningProcess?.terminate()
+        }
+    }
+
+    static func transcriptURLs(in output: String, outputDirectory: URL) -> [URL] {
+        let directory = outputDirectory.resolvingSymlinksInPath().standardizedFileURL.path
+        return output.split(whereSeparator: \.isNewline).compactMap { line in
+            let text = line.trimmingCharacters(in: .whitespaces)
+            guard text.hasPrefix("→ ") else { return nil }
+            let url = URL(fileURLWithPath: String(text.dropFirst(2)))
+            guard url.pathExtension.lowercased() == "srt",
+                  url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path == directory else { return nil }
+            return url
         }
     }
 

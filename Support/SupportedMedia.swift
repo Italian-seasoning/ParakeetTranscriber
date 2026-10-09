@@ -1,13 +1,11 @@
 import UniformTypeIdentifiers
 
 enum SupportedMedia {
-    static let contentTypes: [UTType] = [.audio, .movie, .audiovisualContent]
+    // Keep the picker and drop validation aligned with macparakeet-cli.
+    static let extensions = ["avi", "flac", "m4a", "mkv", "mov", "mp3", "mp4", "ogg", "opus", "wav", "webm"]
+    static let contentTypes = extensions.compactMap { UTType(filenameExtension: $0) }
 
     static func contains(_ url: URL) -> Bool {
-        guard url.isFileURL,
-              let type = UTType(filenameExtension: url.pathExtension)
-        else { return false }
-
-        return contentTypes.contains { type.conforms(to: $0) }
+        url.isFileURL && extensions.contains(url.pathExtension.lowercased())
     }
 }

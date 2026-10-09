@@ -12,6 +12,7 @@ final class TranscriptionStore: ObservableObject {
     @Published private(set) var status = "Drop audio or video files to begin."
     @Published private(set) var lastError: String?
     @Published private(set) var transcript = ""
+    @Published private(set) var transcriptURLs: [URL] = []
 
     private let service = MacParakeetService()
     private var transcriptionTask: Task<Void, Never>?
@@ -28,10 +29,11 @@ final class TranscriptionStore: ObservableObject {
     }
 
     func add(_ urls: [URL]) {
+        guard !isRunning else { return }
         let validFiles = urls.filter(SupportedMedia.contains)
-        let existing = Set(files.map(\.standardizedFileURL))
+        var existing = Set(files.map(\.standardizedFileURL))
         files.append(contentsOf: validFiles.filter {
-            !existing.contains($0.standardizedFileURL)
+            existing.insert($0.standardizedFileURL).inserted
         })
         progress = 0
         status = files.isEmpty
@@ -40,6 +42,7 @@ final class TranscriptionStore: ObservableObject {
     }
 
     func remove(_ url: URL) {
+        guard !isRunning else { return }
         files.removeAll { $0.standardizedFileURL == url.standardizedFileURL }
         progress = 0
         status = files.isEmpty
@@ -48,6 +51,7 @@ final class TranscriptionStore: ObservableObject {
     }
 
     func chooseFiles() {
+        guard !isRunning else { return }
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -56,7 +60,22 @@ final class TranscriptionStore: ObservableObject {
         add(panel.urls)
     }
 
+    static func fileURLs(from pasteboard: NSPasteboard) -> [URL] {
+        pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    }
+
+    func addClipboardFiles() {
+        guard !isRunning else { return }
+        let urls = Self.fileURLs(from: .general).filter(SupportedMedia.contains)
+        guard !urls.isEmpty else {
+            status = "Copy audio or video files in Finder, then add them with ⇧⌘V."
+            return
+        }
+        add(urls)
+    }
+
     func chooseOutputDirectory() {
+        guard !isRunning else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -72,6 +91,7 @@ final class TranscriptionStore: ObservableObject {
         progress = 0
         lastError = nil
         transcript = ""
+        transcriptURLs = []
         status = "Transcribing \(files.count) \(files.count == 1 ? "file" : "files")…"
 
         let queuedFiles = files
@@ -79,23 +99,25 @@ final class TranscriptionStore: ObservableObject {
         let selectedPerformance = performance
         let destination = outputDirectory
 
-        transcriptionTask = Task {
+        transcriptionTask = Task { [self] in
             do {
-                let transcriptURLs = try await service.transcribe(
+                let outputURLs = try await service.transcribe(
                     files: queuedFiles,
                     outputDirectory: destination,
                     model: selectedModel,
                     performance: selectedPerformance,
                     onProgress: { [weak self] value in
                         Task { @MainActor in
-                            self?.progress = value
+                            guard let self, self.isRunning else { return }
+                            self.progress = max(self.progress, value)
                         }
                     }
                 )
                 progress = 1
-                transcript = transcriptURLs.compactMap {
-                    try? String(contentsOf: $0, encoding: .utf8)
+                transcript = try outputURLs.map {
+                    try String(contentsOf: $0, encoding: .utf8)
                 }.joined(separator: "\n\n")
+                transcriptURLs = outputURLs
                 status = transcript.isEmpty
                     ? "Transcription complete."
                     : "Transcription complete. Ready to copy."
@@ -120,6 +142,10 @@ final class TranscriptionStore: ObservableObject {
     }
 
     func revealOutput() {
+        if !transcriptURLs.isEmpty {
+            NSWorkspace.shared.activateFileViewerSelecting(transcriptURLs)
+            return
+        }
         try? FileManager.default.createDirectory(
             at: outputDirectory,
             withIntermediateDirectories: true

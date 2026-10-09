@@ -9,6 +9,16 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    var sliderPosition: Double {
+        Double(Self.allCases.firstIndex(of: self) ?? 0)
+    }
+
+    static func atSliderPosition(_ value: Double) -> Self {
+        guard value.isFinite else { return .v3 }
+        let position = min(max(value, 0), Double(allCases.count - 1))
+        return allCases[Int(position.rounded())]
+    }
+
     var title: String {
         switch self {
         case .v3: "Parakeet v3"

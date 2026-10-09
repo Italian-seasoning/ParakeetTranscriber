@@ -18,7 +18,6 @@ if pgrep -f "$FINAL_APP_DIR/Contents/MacOS/ParakeetTranscriber" >/dev/null; then
     pkill -f "$FINAL_APP_DIR/Contents/MacOS/ParakeetTranscriber"
 fi
 
-swift package clean
 swift build -c release --jobs 1
 
 mkdir -p "$MACOS_DIR" "$FRAMEWORKS_DIR" "$RESOURCES_DIR"
@@ -26,7 +25,16 @@ cp "$BUILD_DIR/ParakeetTranscriber" "$MACOS_DIR/ParakeetTranscriber"
 install_name_tool -add_rpath @executable_path/../Frameworks "$MACOS_DIR/ParakeetTranscriber"
 ditto "$BUILD_DIR/Sparkle.framework" "$FRAMEWORKS_DIR/Sparkle.framework"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
-cp "$ROOT_DIR"/Resources/TileRenders/*.png "$RESOURCES_DIR/"
+ICONSET_DIR="$STAGING_DIR/AppIcon.iconset"
+mkdir -p "$ICONSET_DIR"
+for size in 16 32 128 256 512; do
+    sips -s format png -z "$size" "$size" "$ROOT_DIR/Resources/AppIcon.png" \
+        --out "$ICONSET_DIR/icon_${size}x${size}.png" >/dev/null
+    retina_size=$((size * 2))
+    sips -s format png -z "$retina_size" "$retina_size" "$ROOT_DIR/Resources/AppIcon.png" \
+        --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES_DIR/AppIcon.icns"
 
 xattr -cr "$APP_DIR"
 if [[ "$SIGN_IDENTITY" == "-" ]]; then
