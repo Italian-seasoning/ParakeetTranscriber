@@ -1,5 +1,11 @@
 # Parakeet Transcriber
 
+<p align="center">
+  <img src="Resources/AppIcon.png" width="144" alt="Parakeet Transcriber app icon" />
+</p>
+
+[View the software showcase](https://nolan-mac-apps.nolankrahn.chatgpt.site/apps/parakeet)
+
 The compact workspace keeps model and performance sliders, the new app icon, and an animated processing waveform. Larger slider labels, restrained colour accents, and distinct **Save to** / **Open folder** actions make the controls easier to read and identify.
 
 A compact native macOS front end for fully local transcription with MacParakeet. It supports multiple Parakeet, Nemotron, and Whisper models, live progress, batch input, copy-to-clipboard, and Sparkle updates.
