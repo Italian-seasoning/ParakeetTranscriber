@@ -18,11 +18,12 @@ if pgrep -f "$FINAL_APP_DIR/Contents/MacOS/ParakeetTranscriber" >/dev/null; then
     pkill -f "$FINAL_APP_DIR/Contents/MacOS/ParakeetTranscriber"
 fi
 
-swift build -c release --jobs 1
+swift build -c release --jobs 1 -Xswiftc -no-serialize-debugging-options -Xswiftc -debug-prefix-map -Xswiftc "$ROOT_DIR=." -Xswiftc -file-prefix-map -Xswiftc "$ROOT_DIR=."
 
 mkdir -p "$MACOS_DIR" "$FRAMEWORKS_DIR" "$RESOURCES_DIR"
 cp "$BUILD_DIR/ParakeetTranscriber" "$MACOS_DIR/ParakeetTranscriber"
 install_name_tool -add_rpath @executable_path/../Frameworks "$MACOS_DIR/ParakeetTranscriber"
+strip -S "$MACOS_DIR/ParakeetTranscriber"
 ditto "$BUILD_DIR/Sparkle.framework" "$FRAMEWORKS_DIR/Sparkle.framework"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 ICONSET_DIR="$STAGING_DIR/AppIcon.iconset"

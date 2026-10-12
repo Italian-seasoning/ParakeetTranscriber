@@ -7,7 +7,7 @@ APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/Resources/Info.plist")
 RELEASE_DIR="$ROOT_DIR/dist/releases/$VERSION"
 ARCHIVE_NAME="Parakeet-Transcriber-$VERSION.zip"
-SPARKLE_BIN="$ROOT_DIR/.build/artifacts/sparkle/Sparkle/bin"
+SPARKLE_BIN="${SPARKLE_BIN_OVERRIDE:-$ROOT_DIR/.build/artifacts/sparkle/Sparkle/bin}"
 AD_HOC=false
 
 case "${1:-}" in
@@ -46,4 +46,5 @@ ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$RELEASE_DIR/$ARCHIVE_NAME"
     "$RELEASE_DIR"
 
 cp "$RELEASE_DIR/appcast.xml" "$ROOT_DIR/appcast.xml"
+python3 "$ROOT_DIR/script/verify_update.py" "$APP_DIR" "$RELEASE_DIR/$ARCHIVE_NAME" "$RELEASE_DIR/appcast.xml" --sparkle-bin "$SPARKLE_BIN" --account Italian-seasoning --repository Italian-seasoning/ParakeetTranscriber --require-newer
 echo "Release ready: $RELEASE_DIR/$ARCHIVE_NAME"
