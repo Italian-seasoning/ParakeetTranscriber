@@ -201,6 +201,95 @@ final class MacParakeetCommandTests: XCTestCase {
         XCTAssertFalse(process.isRunning)
     }
 
+    func testAwkwardPathsReachTheProcessAsSingleArguments() throws {
+        let paths = ["/tmp/my file.mp3", "/tmp/say \"hi\".mp3", "/tmp/it's here.mp3", "/tmp/café ñ 日本語.mp3"]
+        let outputDirectory = URL(fileURLWithPath: "/tmp/out dir \"q\" it's ü")
+        for performance in [PerformanceMode.fullSpeed, .efficiency] {
+            let command = MacParakeetCommand.make(
+                cliURL: cli,
+                files: paths.map { URL(fileURLWithPath: $0) },
+                outputDirectory: outputDirectory,
+                model: .v3,
+                performance: performance
+            )
+            for path in paths + [outputDirectory.path] {
+                XCTAssertEqual(command.arguments.filter { $0 == path }.count, 1, path)
+            }
+        }
+
+        // Run them through a real process: printf prints each argument on its own line.
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/printf")
+        process.arguments = ["%s\n"] + paths + [outputDirectory.path]
+        process.standardOutput = pipe
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        XCTAssertEqual(String(decoding: data, as: UTF8.self), (paths + [outputDirectory.path]).joined(separator: "\n") + "\n")
+    }
+
+    func testMissingExecutableFailsCleanlyWithoutHanging() throws {
+        XCTAssertEqual(MacParakeetError.notInstalled.errorDescription,
+                       "MacParakeet is not installed. Install it, then try again.")
+
+        let service = MacParakeetService()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/nonexistent/macparakeet-cli")
+        XCTAssertThrowsError(try service.startProcess(process, run: process.run))
+        let returned = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            service.cancel()
+            returned.signal()
+        }
+        XCTAssertEqual(returned.wait(timeout: .now() + 1), .success)
+        XCTAssertFalse(process.isRunning)
+    }
+
+    func testRepeatedBaseNamesKeepDistinctOutputsInOrder() {
+        let output = """
+          → /tmp/transcripts/a file.srt
+          → /tmp/transcripts/a file-2.srt
+          → /tmp/transcripts/a file-3.srt
+        """
+        let urls = MacParakeetService.transcriptURLs(in: output, outputDirectory: self.output)
+        XCTAssertEqual(urls, ["a file.srt", "a file-2.srt", "a file-3.srt"].map {
+            self.output.appendingPathComponent($0)
+        })
+        XCTAssertEqual(Set(urls).count, 3)
+    }
+
+    func testCancellingMidBatchKeepsFinishedOutputAndLeavesNoProcess() async throws {
+        // The app runs one CLI process for the whole batch, so a stand-in script writes the
+        // "first" output, then idles where the remaining files would be processed.
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = directory.appendingPathComponent("first.srt")
+        let second = directory.appendingPathComponent("second.srt")
+
+        let service = MacParakeetService()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "echo done > \"$1\"; exec sleep 30", "sh", first.path]
+        let exited = expectation(description: "Cancelled batch exits")
+        process.terminationHandler = { _ in exited.fulfill() }
+        try service.startProcess(process, run: process.run)
+        defer { if process.isRunning { process.terminate() } }
+
+        let deadline = Date().addingTimeInterval(3)
+        while !FileManager.default.fileExists(atPath: first.path), Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+
+        service.cancel()
+        await fulfillment(of: [exited], timeout: 3)
+        XCTAssertFalse(process.isRunning)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: second.path))
+    }
+
     @MainActor
     func testFinderServiceQueuesClipboardFiles() throws {
         let pasteboard = NSPasteboard.withUniqueName()
