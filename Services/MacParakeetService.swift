@@ -217,10 +217,10 @@ final class MacParakeetService: @unchecked Sendable {
                 }
 
                 do {
-                    setProcess(task)
-                    try task.run()
+                    try startProcess(task, run: task.run)
                 } catch {
-                    setProcess(nil)
+                    pipe.fileHandleForReading.readabilityHandler = nil
+                    task.terminationHandler = nil
                     continuation.resume(throwing: error)
                 }
             }
@@ -231,10 +231,23 @@ final class MacParakeetService: @unchecked Sendable {
 
     func cancel() {
         lock.lock()
-        let runningProcess = process
-        lock.unlock()
-        if runningProcess?.isRunning == true {
-            runningProcess?.terminate()
+        defer { lock.unlock() }
+        if process?.isRunning == true {
+            process?.terminate()
+        }
+    }
+
+    func startProcess(_ process: Process, run: () throws -> Void) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        // Cancellation either prevents launch or waits for run() and terminates the running process.
+        try Task.checkCancellation()
+        self.process = process
+        do {
+            try run()
+        } catch {
+            self.process = nil
+            throw error
         }
     }
 

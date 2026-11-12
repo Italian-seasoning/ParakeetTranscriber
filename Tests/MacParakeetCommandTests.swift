@@ -126,6 +126,81 @@ final class MacParakeetCommandTests: XCTestCase {
                        [self.output.appendingPathComponent("a file-2.srt")])
     }
 
+    func testCancellationBeforeProcessRegistrationPreventsLaunch() async throws {
+        let service = MacParakeetService()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/touch")
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        process.arguments = [marker.path]
+        defer { try? FileManager.default.removeItem(at: marker) }
+        let ready = DispatchSemaphore(value: 0)
+        let proceed = DispatchSemaphore(value: 0)
+        let task = Task.detached {
+            ready.signal()
+            guard waitForSignal(proceed, seconds: 3) == .success else { throw MacParakeetError.failed("Test startup timed out") }
+            try service.startProcess(process, run: process.run)
+            process.waitUntilExit()
+        }
+        XCTAssertEqual(ready.wait(timeout: .now() + 2), .success)
+        task.cancel()
+        proceed.signal()
+        do {
+            try await task.value
+            XCTFail("A cancelled task must not launch its process")
+        } catch is CancellationError {
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testCancellationSerializesWithProcessLaunch() async throws {
+        let service = MacParakeetService()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["30"]
+        let exited = expectation(description: "Cancelled process exits")
+        process.terminationHandler = { _ in exited.fulfill() }
+        let entered = DispatchSemaphore(value: 0)
+        let proceed = DispatchSemaphore(value: 0)
+        defer {
+            proceed.signal()
+            if process.isRunning { process.terminate() }
+        }
+        let startup = Task.detached {
+            try service.startProcess(process) {
+                entered.signal()
+                guard proceed.wait(timeout: .now() + 3) == .success else { throw MacParakeetError.failed("Test startup timed out") }
+                try process.run()
+            }
+        }
+        XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+        let cancelled = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            service.cancel()
+            cancelled.signal()
+        }
+        XCTAssertEqual(cancelled.wait(timeout: .now() + 0.1), .timedOut)
+        proceed.signal()
+        try await startup.value
+        XCTAssertEqual(cancelled.wait(timeout: .now() + 2), .success)
+        await fulfillment(of: [exited], timeout: 2)
+        XCTAssertFalse(process.isRunning)
+    }
+
+    func testCancelAfterProcessFinishedReturnsImmediately() throws {
+        let service = MacParakeetService()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try service.startProcess(process, run: process.run)
+        process.waitUntilExit()
+        let returned = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            service.cancel()
+            returned.signal()
+        }
+        XCTAssertEqual(returned.wait(timeout: .now() + 1), .success)
+        XCTAssertFalse(process.isRunning)
+    }
+
     @MainActor
     func testFinderServiceQueuesClipboardFiles() throws {
         let pasteboard = NSPasteboard.withUniqueName()
@@ -142,4 +217,8 @@ final class MacParakeetCommandTests: XCTestCase {
         XCTAssertNotNil(error)
     }
 
+}
+
+private func waitForSignal(_ semaphore: DispatchSemaphore, seconds: Double) -> DispatchTimeoutResult {
+    semaphore.wait(timeout: .now() + seconds)
 }
