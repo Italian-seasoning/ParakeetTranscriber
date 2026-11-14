@@ -77,3 +77,25 @@ final class TranscriptExporterTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), [])
     }
 }
+
+@MainActor
+final class TranscriptionStoreTextCopyTests: XCTestCase {
+    private let srt = "1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:05,000 --> 00:00:06,000\nWorld\n"
+
+    func testCopyTextOnlyWritesPlainTextToInjectedPasteboard() {
+        let store = TranscriptionStore()
+        var written: [String] = []
+        store.pasteboardWriter = { written.append($0) }
+        store.copyTextOnly(of: srt)
+        XCTAssertEqual(written, ["Hello\n\nWorld"])
+        XCTAssertEqual(store.status, "Transcript text copied to clipboard.")
+    }
+
+    func testCopyTextOnlyWithNoCuesWritesNothing() {
+        let store = TranscriptionStore()
+        var written: [String] = []
+        store.pasteboardWriter = { written.append($0) }
+        store.copyTextOnly(of: "")
+        XCTAssertTrue(written.isEmpty)
+    }
+}

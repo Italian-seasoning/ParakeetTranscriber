@@ -237,6 +237,21 @@ struct ContentView: View {
                 .disabled(store.transcriptURLs.isEmpty || store.isRunning)
                 .help("Share subtitle files")
                 .accessibilityLabel("Share subtitle files")
+                Menu {
+                    ForEach(TranscriptExporter.Format.allCases, id: \.self) { format in
+                        Button(format.menuTitle) { store.exportTranscripts(as: format) }
+                    }
+                    Divider()
+                    Button("Copy text only") { store.copyTranscriptTextOnly() }
+                } label: {
+                    Image(systemName: "arrow.down.doc")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .disabled(store.transcriptURLs.isEmpty || store.isRunning)
+                .help("Export as text or WebVTT")
+                .accessibilityLabel("Export transcript")
                 Button(action: store.copyTranscript) {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
