@@ -49,7 +49,17 @@ struct ParakeetTranscriberApp: App {
                 .keyboardShortcut("o")
                 .disabled(store.isRunning)
             }
-            CommandGroup(after: .pasteboard) {
+            // Plain ⌘V adds copied files; anything else is forwarded to the focused view.
+            CommandGroup(replacing: .pasteboard) {
+                Button("Cut") { NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil) }
+                    .keyboardShortcut("x")
+                Button("Copy") { NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil) }
+                    .keyboardShortcut("c")
+                Button("Paste", action: store.paste)
+                    .keyboardShortcut("v")
+                Button("Select All") { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) }
+                    .keyboardShortcut("a")
+                Divider()
                 Button("Add Files from Clipboard", action: store.addClipboardFiles)
                     .keyboardShortcut("v", modifiers: [.command, .shift])
                     .disabled(store.isRunning)

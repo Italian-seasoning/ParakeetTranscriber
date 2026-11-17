@@ -12,9 +12,27 @@ final class MacParakeetCommandTests: XCTestCase {
             XCTAssertEqual(TranscriptionModel.atSliderPosition(model.sliderPosition), model)
         }
         XCTAssertEqual(TranscriptionModel.atSliderPosition(1.6), .unified)
-        XCTAssertEqual(TranscriptionModel.atSliderPosition(-100), .v3)
+        XCTAssertEqual(TranscriptionModel.atSliderPosition(-100), .v2)
         XCTAssertEqual(TranscriptionModel.atSliderPosition(100), .whisperTurbo)
-        XCTAssertEqual(TranscriptionModel.atSliderPosition(.nan), .v3)
+        XCTAssertEqual(TranscriptionModel.atSliderPosition(.nan), .default)
+    }
+
+    func testDefaultModelIsEnglishParakeetV2AtTheStartOfTheSlider() {
+        XCTAssertEqual(TranscriptionModel.default, .v2)
+        XCTAssertEqual(TranscriptionModel.default.sliderPosition, 0)
+        let command = MacParakeetCommand.make(
+            cliURL: cli,
+            files: [input],
+            outputDirectory: output,
+            model: .default,
+            performance: .fullSpeed
+        )
+        XCTAssertEqual(Array(command.arguments.suffix(2)), ["--parakeet-model", "v2"])
+    }
+
+    @MainActor
+    func testNewStoreStartsOnTheDefaultModel() {
+        XCTAssertEqual(TranscriptionStore().model, .default)
     }
 
     func testFullSpeedUsesCLIAndSelectedModel() {

@@ -4,7 +4,7 @@ import Foundation
 @MainActor
 final class TranscriptionStore: ObservableObject {
     @Published var files: [URL] = []
-    @Published var model: TranscriptionModel = .v3
+    @Published var model: TranscriptionModel = .default
     @Published var performance: PerformanceMode = .fullSpeed
     @Published var outputDirectory: URL
     @Published private(set) var isRunning = false
@@ -77,6 +77,15 @@ final class TranscriptionStore: ObservableObject {
             return
         }
         add(urls)
+    }
+
+    /// ⌘V: add copied files to the queue, or pass the paste on when the clipboard holds no files.
+    func paste() {
+        guard !Self.fileURLs(from: .general).isEmpty else {
+            NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
+            return
+        }
+        addClipboardFiles()
     }
 
     func chooseOutputDirectory() {

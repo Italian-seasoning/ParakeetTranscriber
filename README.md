@@ -39,7 +39,7 @@ Screenshots show local preview builds. Empty queues and standby states are shown
 
 - **Finder Open With:** open supported media in Parakeet to add it to the queue. Parakeet registers as an alternate viewer; it does not replace your default media player.
 - **Finder Services:** select files and choose **Services → Queue in Parakeet**. Enable the service under macOS Keyboard Shortcuts → Services if it is hidden. This queues files for review before transcription.
-- **Clipboard files:** copy files in Finder, then press **⇧⌘V** or choose **Add clipboard files** from the queue's plus menu.
+- **Clipboard files:** copy files in Finder, then press **⌘V** (or **⇧⌘V**) in the Parakeet window, or choose **Add clipboard files** from the queue's plus menu.
 - **Finder output:** after a run, **Show output** selects the actual generated SRT files in Finder, including filenames renamed by the CLI to avoid collisions.
 - **Share sheet:** use the transcript's share button to hand generated subtitles to another app through macOS.
 
