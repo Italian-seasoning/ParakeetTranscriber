@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D212A"/>
+      <stop offset="1" stop-color="#0B0D11"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="260" x2="0" y2="760">
+      <stop offset="0" stop-color="#FFE766"/>
+      <stop offset="1" stop-color="#F0B000"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F6D818" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#F6D818" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="44" height="44" patternUnits="userSpaceOnUse">
+      <circle cx="22" cy="22" r="2.4" fill="#FFFFFF" fill-opacity="0.06"/>
+    </pattern>
+    <clipPath id="tileClip"><rect x="100" y="100" width="824" height="824" rx="190"/></clipPath>
+    <filter id="noise" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.9 0 0 0 -0.35"/>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="190" fill="#14171D" filter="url(#shadow)"/>
+  <g clip-path="url(#tileClip)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#dots)"/>
+    <ellipse cx="560" cy="500" rx="300" ry="260" fill="url(#glow)"/>
+    <rect x="100" y="100" width="824" height="824" filter="url(#noise)" opacity="0.10"/>
+  </g>
+  <rect x="102" y="102" width="820" height="820" rx="188" fill="none" stroke="url(#rim)" stroke-width="4"/>
+
+  <g transform="translate(-58 -30)">
+    <!-- tail: five tapered feathers that double as waveform bars -->
+    <g transform="translate(596 664) rotate(128)">
+      <rect x="-40" y="-92" width="150" height="24" rx="12" fill="#F6C50B" fill-opacity="0.5"/>
+      <rect x="-40" y="-52" width="240" height="26" rx="13" fill="#F6C50B" fill-opacity="0.78"/>
+      <path d="M-40 -14 H 262 C 288 -14, 304 -6, 318 0 C 304 6, 288 14, 262 14 H -40 Z" fill="#F6C50B"/>
+      <rect x="-40" y="26" width="196" height="26" rx="13" fill="#F6C50B" fill-opacity="0.78"/>
+      <rect x="-40" y="68" width="104" height="24" rx="12" fill="#F6C50B" fill-opacity="0.5"/>
+    </g>
+    <!-- body silhouette: crown, nape, back, rump, belly, chest, throat -->
+    <path fill="url(#gold)" d="M744 300 C 724 262, 678 246, 636 260 C 590 276, 562 318, 552 370 C 540 432, 520 482, 512 542 C 506 594, 530 642, 572 670 L 616 674 C 670 642, 718 590, 744 520 C 764 468, 770 422, 762 386 C 758 360, 754 330, 744 300 Z"/>
+    <!-- wing: deeper gold with scalloped feather rows, tip crossing the rump -->
+    <path fill="#E2A200" d="M604 382 C 654 400, 686 466, 678 536 C 670 600, 632 656, 568 712 C 552 650, 540 568, 552 494 C 560 444, 578 404, 604 382 Z"/>
+    <g fill="none" stroke="#14171D" stroke-linecap="round" stroke-opacity="0.28" stroke-width="9">
+      <path d="M572 470 C 604 476, 636 470, 664 452"/>
+      <path d="M562 540 C 598 548, 636 540, 670 516"/>
+      <path d="M562 610 C 592 616, 622 606, 648 586"/>
+    </g>
+    <!-- cheek and throat spots, a nod to the budgerigar -->
+    <circle cx="734" cy="384" r="9" fill="#14171D" fill-opacity="0.3"/>
+    <!-- hooked beak -->
+    <path d="M748 304 C 800 300, 830 344, 812 396 C 806 410, 798 420, 788 428 C 790 404, 778 384, 758 376 C 752 352, 750 328, 748 304 Z" fill="#F29A12"/>
+    <path d="M760 380 C 774 386, 784 400, 786 418" fill="none" stroke="#B86400" stroke-width="6" stroke-linecap="round" stroke-opacity="0.6"/>
+    <!-- eye -->
+    <circle cx="700" cy="320" r="18" fill="#14161B"/>
+    <circle cx="705" cy="314" r="5.5" fill="#FFFFFF" fill-opacity="0.9"/>
+  </g>
+</svg>
