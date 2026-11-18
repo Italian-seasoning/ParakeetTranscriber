@@ -17,6 +17,11 @@ final class TranscriptionStore: ObservableObject {
     private let service = MacParakeetService()
     private var transcriptionTask: Task<Void, Never>?
 
+    var pasteboardWriter: (String) -> Void = { text in
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
     init() {
         outputDirectory = FileManager.default.urls(
             for: .documentDirectory,
@@ -158,6 +163,27 @@ final class TranscriptionStore: ObservableObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(transcript, forType: .string)
         status = "Transcript copied to clipboard."
+    }
+
+    func copyTranscriptTextOnly() {
+        copyTextOnly(of: transcript)
+    }
+
+    func copyTextOnly(of srt: String) {
+        let text = SubtitleConverter.plainText(from: SubtitleConverter.parseSRT(srt).cues)
+        guard !text.isEmpty else { return }
+        pasteboardWriter(text)
+        status = "Transcript text copied to clipboard."
+    }
+
+    func exportTranscripts(as format: TranscriptExporter.Format) {
+        guard !transcriptURLs.isEmpty, !isRunning else { return }
+        do {
+            let exported = try TranscriptExporter.export(srtURLs: transcriptURLs, as: format)
+            status = "Exported \(exported.count) .\(format.fileExtension) file\(exported.count == 1 ? "" : "s")."
+        } catch {
+            lastError = error.localizedDescription
+        }
     }
 
     func dismissError() {
