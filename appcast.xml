@@ -3,14 +3,14 @@
     <channel>
         <title>Parakeet Transcriber</title>
         <item>
-            <title>1.3</title>
-            <pubDate>Tue, 17 Nov 2026 17:03:07 -0700</pubDate>
+            <title>1.3.1</title>
+            <pubDate>Tue, 17 Nov 2026 19:50:59 -0700</pubDate>
             <link>https://github.com/Italian-seasoning/ParakeetTranscriber</link>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>1.3</sparkle:shortVersionString>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>1.3.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/Italian-seasoning/ParakeetTranscriber/releases/download/v1.3/Parakeet-Transcriber-1.3.zip" length="2608174" type="application/octet-stream" sparkle:edSignature="YJYypjKFV77yLmYghlOEXSNVcobolTf3arqycScCv3UEswrtonjPX2JKAaBLhX0mGuT4CdBT1FeaRuat0CD7Dg=="/>
+            <enclosure url="https://github.com/Italian-seasoning/ParakeetTranscriber/releases/download/v1.3.1/Parakeet-Transcriber-1.3.1.zip" length="2373835" type="application/octet-stream" sparkle:edSignature="BUSJvInMdNwEqhiYNV3+yQBoXCJFYH5H+IPIqgCZVZLrcixnQFQY1Ci3lcBhWSF6bmZlOilNd05mPtLyzn6jCg=="/>
         </item>
     </channel>
 </rss>
