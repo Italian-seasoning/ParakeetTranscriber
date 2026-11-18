@@ -2,7 +2,11 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var store: TranscriptionStore
-    @State private var hoveredOption: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var copied = false
+
+    /// Short ease for state changes; nil when Reduce Motion is on.
+    private var quick: Animation? { reduceMotion ? nil : .easeOut(duration: 0.18) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,8 +19,8 @@ struct ContentView: View {
                 transcript
                     .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.horizontal, Space.margin)
+            .padding(.bottom, Space.margin)
             footer
         }
         .background(ParakeetPalette.background)
@@ -32,6 +36,16 @@ struct ContentView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(store.lastError ?? "Unknown error")
+        }
+    }
+
+    private func copyTranscript() {
+        guard !store.transcript.isEmpty else { return }
+        store.copyTranscript()
+        copied = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.6))
+            copied = false
         }
     }
 
@@ -51,107 +65,91 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, Space.margin)
         .padding(.top, 10)
-        .padding(.bottom, 14)
+        .padding(.bottom, 12)
     }
 
     private var options: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 10) {
-                Text(store.model.shortCode)
-                    .font(.system(size: 17, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(width: 42, height: 36)
-                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("SPEECH MODEL")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .tracking(1)
-                        .foregroundStyle(.white.opacity(0.65))
-                    Text(store.model.title)
-                        .font(.system(size: 11, weight: .medium))
-                    Slider(value: Binding(
-                        get: { store.model.sliderPosition },
-                        set: { store.model = .atSliderPosition($0) }
-                    ), in: 0...Double(TranscriptionModel.allCases.count - 1), step: 1)
-                    .controlSize(.small)
-                    .labelsHidden()
-                    .accessibilityLabel("Speech model")
-                    .accessibilityValue(store.model.title)
-                    .accessibilityHint(store.model.detail)
-                    HStack(spacing: 0) {
-                        ForEach(TranscriptionModel.allCases) { model in
-                            Text(model.shortCode)
-                                .foregroundStyle(store.model == model ? .white : .white.opacity(0.55))
-                            if model != TranscriptionModel.allCases.last {
-                                Spacer(minLength: 0)
-                            }
+        HStack(alignment: .top, spacing: Space.gap) {
+            optionPanel {
+                HStack(spacing: 6) {
+                    Text("Speech model")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Text(store.model.downloadSize)
+                        .foregroundStyle(ParakeetPalette.yellow.opacity(0.85))
+                }
+                .font(.system(size: 11, design: .monospaced))
+                Text(store.model.title)
+                    .font(.system(size: 14, weight: .semibold))
+                Slider(value: Binding(
+                    get: { store.model.sliderPosition },
+                    set: { store.model = .atSliderPosition($0) }
+                ), in: 0...Double(TranscriptionModel.allCases.count - 1), step: 1)
+                .controlSize(.small)
+                .labelsHidden()
+                .accessibilityLabel("Speech model")
+                .accessibilityValue(store.model.title)
+                .accessibilityHint("\(store.model.detail), \(store.model.downloadSize) download")
+                HStack(spacing: 0) {
+                    ForEach(TranscriptionModel.allCases) { model in
+                        Text(model.shortCode)
+                            .foregroundStyle(store.model == model ? Color.primary : Color.secondary.opacity(0.8))
+                        if model != TranscriptionModel.allCases.last {
+                            Spacer(minLength: 0)
                         }
                     }
-                    .font(.system(size: 9, design: .monospaced))
-                    .accessibilityHidden(true)
                 }
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .accessibilityHidden(true)
             }
-            .padding(.horizontal, 10)
-            .frame(width: 290, height: 72)
-            .background(optionSurface(tint: ParakeetPalette.magenta, isHovering: hoveredOption == "model"))
-            .onHover { hoveredOption = $0 ? "model" : nil }
-            .help(store.model.detail)
-            HStack(spacing: 10) {
-                Image(systemName: store.performance == .fullSpeed ? "bolt.fill" : "leaf")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(width: 36, height: 36)
-                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("PERFORMANCE")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .tracking(1)
-                        .foregroundStyle(.white.opacity(0.65))
-                    Text(store.performance.title)
-                        .font(.system(size: 11, weight: .medium))
-                    Slider(value: Binding(
-                        get: { store.performance == .fullSpeed ? 1 : 0 },
-                        set: { store.performance = $0 < 0.5 ? .efficiency : .fullSpeed }
-                    ), in: 0...1, step: 1)
-                    .controlSize(.small)
-                    .labelsHidden()
-                    .accessibilityLabel("Performance")
-                    .accessibilityValue(store.performance.title)
-                    .accessibilityHint(store.performance.detail)
-                    HStack {
-                        Text("Efficiency")
-                        Spacer()
-                        Text("Full speed")
-                    }
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .accessibilityHidden(true)
+            .help("\(store.model.detail) · \(store.model.downloadSize) download")
+            optionPanel {
+                HStack(spacing: 6) {
+                    Text("Performance")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Image(systemName: store.performance == .fullSpeed ? "bolt.fill" : "leaf")
+                        .foregroundStyle(store.performance == .fullSpeed ? ParakeetPalette.yellow : Color.secondary)
                 }
+                .font(.system(size: 11, design: .monospaced))
+                Text(store.performance.title)
+                    .font(.system(size: 14, weight: .semibold))
+                Slider(value: Binding(
+                    get: { store.performance == .fullSpeed ? 1 : 0 },
+                    set: { store.performance = $0 < 0.5 ? .efficiency : .fullSpeed }
+                ), in: 0...1, step: 1)
+                .controlSize(.small)
+                .labelsHidden()
+                .accessibilityLabel("Performance")
+                .accessibilityValue(store.performance.title)
+                .accessibilityHint(store.performance.detail)
+                HStack {
+                    Text("Efficiency")
+                    Spacer()
+                    Text("Full speed")
+                }
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary.opacity(0.8))
+                .accessibilityHidden(true)
             }
-            .padding(.horizontal, 10)
-            .frame(width: 230, height: 72)
-            .background(optionSurface(tint: ParakeetPalette.violet, isHovering: hoveredOption == "performance"))
-            .onHover { hoveredOption = $0 ? "performance" : nil }
+            .frame(width: 230)
             .help(store.performance.detail)
-            Spacer(minLength: 0)
-            Text("SRT output")
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
         }
         .disabled(store.isRunning)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Space.margin)
+        .padding(.vertical, Space.gap)
     }
 
-    private func optionSurface(tint: Color, isHovering: Bool) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 12)
-        return shape
-            .fill(tint.opacity(isHovering ? 0.15 : 0.09))
-            .background(ParakeetPalette.surface, in: shape)
-            .overlay(shape.strokeBorder(tint.opacity(isHovering ? 0.42 : 0.22)))
-            .allowsHitTesting(false)
+    private func optionPanel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            content()
+        }
+        .padding(Space.inset)
+        .frame(maxWidth: .infinity, minHeight: 92, maxHeight: 92, alignment: .leading)
+        .background(ParakeetPalette.surface, in: RoundedRectangle(cornerRadius: Space.radius))
+        .overlay(RoundedRectangle(cornerRadius: Space.radius).strokeBorder(.white.opacity(0.08)))
     }
 
     private var queue: some View {
@@ -160,7 +158,7 @@ struct ContentView: View {
                 Text("Files")
                     .font(.system(size: 13, weight: .semibold))
                 Text("\(store.files.count)")
-                    .font(.caption.monospacedDigit())
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Menu {
@@ -175,7 +173,7 @@ struct ContentView: View {
                 .help("Add files (⌘O)")
                 .accessibilityLabel("Add files")
             }
-            .padding(14)
+            .padding(Space.inset)
             Divider()
             if store.files.isEmpty {
                 DropZone(isRunning: store.isRunning, compact: false,
@@ -185,43 +183,20 @@ struct ContentView: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(store.files, id: \.standardizedFileURL) { file in
-                            HStack(spacing: 10) {
-                                Image(systemName: "doc.waveform")
-                                    .foregroundStyle(ParakeetPalette.yellow)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(file.lastPathComponent)
-                                        .font(.system(size: 12, weight: .medium))
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                    Text(file.pathExtension.uppercased())
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 2)
-                                Button { store.remove(file) } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .frame(width: 24, height: 24)
-                                }
-                                .buttonStyle(.borderless)
-                                .disabled(store.isRunning)
-                                .help("Remove \(file.lastPathComponent)")
-                                .accessibilityLabel("Remove \(file.lastPathComponent)")
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            Divider().padding(.horizontal, 12)
+                            FileRow(file: file, isRunning: store.isRunning) { store.remove(file) }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
+                    .animation(quick, value: store.files)
                 }
                 DropZone(isRunning: store.isRunning, compact: true,
                          chooseFiles: store.chooseFiles, addFiles: store.add)
                     .frame(height: 52)
             }
         }
-        .background(ParakeetPalette.surface, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.08)))
-        .padding(.trailing, 6)
+        .background(ParakeetPalette.surface, in: RoundedRectangle(cornerRadius: Space.radius))
+        .overlay(RoundedRectangle(cornerRadius: Space.radius).strokeBorder(.white.opacity(0.08)))
+        .padding(.trailing, Space.gap / 2)
     }
 
     private var transcript: some View {
@@ -252,41 +227,46 @@ struct ContentView: View {
                 .disabled(store.transcriptURLs.isEmpty || store.isRunning)
                 .help("Export as text or WebVTT")
                 .accessibilityLabel("Export transcript")
-                Button(action: store.copyTranscript) {
-                    Label("Copy", systemImage: "doc.on.doc")
+                Button(action: copyTranscript) {
+                    Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .frame(minWidth: 64, alignment: .trailing)
                 }
                 .buttonStyle(.borderless)
+                .foregroundStyle(copied ? Color.green : ParakeetPalette.yellow)
+                .animation(quick, value: copied)
                 .disabled(store.transcript.isEmpty || store.isRunning)
                 .help("Copy transcript")
             }
-            .padding(14)
+            .padding(Space.inset)
             Divider()
             if store.transcript.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: 10) {
                     if store.isRunning {
-                        ProcessingWaveform()
-                    } else {
-                        Image(systemName: "text.alignleft")
-                            .font(.system(size: 28, weight: .light))
-                            .foregroundStyle(ParakeetPalette.yellow.opacity(0.75))
-                    }
-                    Text(store.isRunning ? "Transcribing your files…" : "Add a recording to begin")
-                        .font(.system(size: 16, weight: .medium))
-                    Text(store.isRunning ? "You can keep working while Parakeet listens." : "Drop audio or video into the queue.\nChoose a model, then transcribe to SRT.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                    if store.isRunning {
+                        ProcessingWaveform(progress: store.progress)
+                            .padding(.bottom, 6)
+                        Text("Transcribing your files…")
+                            .font(.system(size: 15, weight: .medium))
+                        Text("You can keep working while Parakeet listens.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                         ProgressView(value: store.progress)
                             .frame(width: 180)
+                            .padding(.top, 4)
                         Text("\(Int((store.progress * 100).rounded()))%")
-                            .font(.caption.monospacedDigit())
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(.secondary)
+                    } else {
+                        Text("Your transcript appears here")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text("Add a recording, then choose Transcribe.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary.opacity(0.8))
                     }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
             } else {
                 ScrollView {
                     Text(store.transcript)
@@ -297,12 +277,14 @@ struct ContentView: View {
                         .padding(18)
                 }
                 .frame(maxHeight: .infinity)
+                .transition(.opacity)
                 .accessibilityLabel("Transcript preview")
             }
         }
-        .background(ParakeetPalette.surface, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.08)))
-        .padding(.leading, 6)
+        .animation(quick, value: store.transcript.isEmpty)
+        .background(ParakeetPalette.surface, in: RoundedRectangle(cornerRadius: Space.radius))
+        .overlay(RoundedRectangle(cornerRadius: Space.radius).strokeBorder(.white.opacity(0.08)))
+        .padding(.leading, Space.gap / 2)
     }
 
     private var footer: some View {
@@ -317,11 +299,14 @@ struct ContentView: View {
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(store.status)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(store.lastError == nil ? Color.primary : Color.red)
                         .lineLimit(1)
+                        .id(store.status)
+                        .transition(.opacity)
+                        .animation(quick, value: store.status)
                     Button(action: store.chooseOutputDirectory) {
-                        Label("Save to: \(store.outputDirectory.lastPathComponent)", systemImage: "folder.badge.gearshape")
+                        Label("Saves SRT to \(store.outputDirectory.lastPathComponent)", systemImage: "folder.badge.gearshape")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -349,8 +334,50 @@ struct ContentView: View {
                     .keyboardShortcut(.defaultAction)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, Space.margin)
+            .padding(.vertical, Space.gap)
         }
+    }
+}
+
+private struct FileRow: View {
+    let file: URL
+    let isRunning: Bool
+    let remove: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "doc.waveform")
+                    .foregroundStyle(ParakeetPalette.yellow)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(file.lastPathComponent)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(file.pathExtension.uppercased())
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 2)
+                Button(action: remove) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .medium))
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.borderless)
+                .opacity(hovering && !isRunning ? 1 : 0.45)
+                .disabled(isRunning)
+                .help("Remove \(file.lastPathComponent)")
+                .accessibilityLabel("Remove \(file.lastPathComponent)")
+            }
+            .padding(.horizontal, Space.inset)
+            .padding(.vertical, 10)
+            .background(.white.opacity(hovering ? 0.04 : 0))
+            Divider().padding(.horizontal, Space.inset)
+        }
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
